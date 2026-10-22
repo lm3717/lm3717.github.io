@@ -1,0 +1,19 @@
+---
+title: "My awesome website"
+output: 
+  html_document:
+    toc: true
+    toc_float: true
+    theme: cerulean
+---
+
+# This is Lina's awesome website
+
+![](https://media.giphy.com/media/drXGoW1iudhKw/giphy.gif)
+To learn about this page, go [here](about.html).
+
+## Some other stuff
+
+Here's a pic:
+
+<img src="images/hotdog.HEIC" style="width:75%">
