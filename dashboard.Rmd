@@ -1,67 +1,158 @@
 ---
-title: "Dashboard"
-output: 
+title: "NYC Restaurant Inspections"
+output:
   flexdashboard::flex_dashboard:
     orientation: columns
     vertical_layout: fill
+    navbar:
+      - title: "Home"
+        href: index.html
+        align: left
+    theme:
+      version: 4
+      bootswatch: flatly
 ---
-
 ```{r setup, include=FALSE}
-library(flexdashboard)
-
 library(tidyverse)
 library(p8105.datasets)
-
 library(plotly)
+library(flexdashboard)
+knitr::opts_chunk$set(
+  echo = FALSE,
+  message = FALSE,
+  warning = FALSE
+)
+
+borough_levels = c("Bronx", "Brooklyn", "Manhattan", "Queens", "Staten Island")
+borough_colors = setNames(
+  viridisLite::viridis(length(borough_levels), begin = .15, end = .85),
+  borough_levels
+)
 ```
 
-Column {data-width=650}
+```{r data-prep, include=FALSE}
+data("rest_inspec", package = "p8105.datasets")
 
-```{r}
-data("nyc_airbnb")
-
-nyc_airbnb = nyc_airbnb |> 
-  mutate(rating = review_scores_location/2) |> 
-  select(neighbourhood_group, neighbourhood, rating, price, room_type, lat, long) |> 
+inspections =
+  rest_inspec |>
+  mutate(inspection_date = as.Date(inspection_date)) |>
   filter(
-    !is.na(rating), 
-    neighbourhood_group == "Manhattan",
-    room_type == "Entire home/apt", 
-    price %in% 100:500)
+    boro %in% borough_levels,
+    !is.na(score),
+    inspection_date >= as.Date("2012-01-01")
+  ) |>
+  distinct(camis, inspection_date, .keep_all = TRUE) |>
+  select(camis, dba, boro, cuisine_description, inspection_date, score, grade) |>
+  mutate(boro = factor(boro, levels = borough_levels))
+
+monthly_counts =
+  inspections |>
+  mutate(month = lubridate::floor_date(inspection_date, "month")) |>
+  count(month, boro, name = "n_inspections") |>
+  arrange(boro, month)
+set.seed(1)
+score_sample = inspections |>
+  slice_sample(n = min(5000L, nrow(inspections)))
+
+top_cuisines =
+  inspections |>
+  filter(!is.na(cuisine_description), cuisine_description != "") |>
+  mutate(cuisine_description = if_else(
+  str_starts(cuisine_description, "Latin"),
+  "Latin",
+  cuisine_description
+)) |>
+  count(cuisine_description, name = "n_inspections") |>
+  arrange(desc(n_inspections), cuisine_description) |>
+  slice_head(n = 10) |>
+  arrange(n_inspections, cuisine_description) |>
+  mutate(cuisine_description = factor(
+    cuisine_description, levels = cuisine_description
+  ))
+
+cuisine_colors = viridisLite::viridis(
+  nrow(top_cuisines), begin = .15, end = .85
+)
 ```
+Column {data-width=600}
 -----------------------------------------------------------------------
-
-### Scatterplot
-
-```{r}
-nyc_airbnb |> 
-  mutate(
-    text_label = str_c("Price: $", price, "\nRating: ", rating) 
-  ) |> 
-  plot_ly(
-    x = ~lat, y = ~long, type = "scatter", mode = "markers",
-    color = ~price, text = ~text_label, alpha = 0.5
-  )
+### Inspections per month by borough
+Scored inspections since January 2012; one record per restaurant per date. Hover over a line for details; click
+a borough in the legend to show or hide it.
+```{r monthly-line}
+plot_ly(
+  monthly_counts,
+  x = ~month,
+  y = ~n_inspections,
+  color = ~boro,
+  colors = borough_colors,
+  type = "scatter",
+  mode = "lines",
+  text = ~paste0(
+    "Borough: ", boro,
+    "<br>Month: ", format(month, "%b %Y"),
+    "<br>Inspections: ", format(n_inspections, big.mark = ",", trim = TRUE)
+),
+  hoverinfo = "text"
+) |>
+  layout(
+    xaxis = list(title = "Month"),
+    yaxis = list(title = "Number of inspections", rangemode = "tozero"),
+    legend = list(title = list(text = "Borough")),
+    margin = list(l = 65, r = 20, b = 55, t = 20)
+  ) |>
+  config(displaylogo = FALSE, responsive = TRUE)
 ```
-
-Column {data-width=350}
+Column {data-width=400}
 -----------------------------------------------------------------------
-
-### Boxplot
-
-```{r}
-nyc_airbnb |> 
-  mutate(neighbourhood = fct_reorder(neighbourhood, price)) |> 
-  plot_ly(y = ~price, color = ~neighbourhood, type = "box", colors = "viridis")
+### Inspection scores by borough
+Reproducible random sample of up to 5,000 inspections. Higher scores mean
+greater sanitation violations.
+```{r score-box}
+plot_ly(
+  score_sample,
+  x = ~boro,
+  y = ~score,
+  color = ~boro,
+  colors = borough_colors,
+  type = "box",
+  boxpoints = FALSE
+) |>
+  layout(
+    xaxis = list(
+      title = "Borough", categoryorder = "array", categoryarray = borough_levels
+    ),
+    yaxis = list(title = "Inspection score (higher = worse)"),
+    showlegend = FALSE,
+    margin = list(l = 65, r = 20, b = 65, t = 15)
+  ) |>
+  config(displaylogo = FALSE, responsive = TRUE)
 ```
-
-### Bar Chart
-
-```{r}
-nyc_airbnb |> 
-  count(neighbourhood) |> 
-  mutate(neighbourhood = fct_reorder(neighbourhood, n)) |> 
-  plot_ly(
-    x = ~neighbourhood, y = ~n, type = "bar", color = ~neighbourhood, colors = "viridis")
+### Ten most-inspected cuisines
+Counts use all retained inspections with a recorded cuisine.
+```{r cuisine-bar}
+plot_ly(
+  top_cuisines,
+  x = ~n_inspections,
+  y = ~cuisine_description,
+  type = "bar",
+  orientation = "h",
+  marker = list(color = cuisine_colors),
+  text = ~paste0(
+    "Cuisine: ", cuisine_description,
+    "<br>Inspections: ", format(n_inspections, big.mark = ",", trim = TRUE)
+  ),
+  hoverinfo = "text"
+) |>
+  layout(
+    xaxis = list(title = "Number of inspections", rangemode = "tozero"),
+    yaxis = list(
+      title = "", automargin = TRUE,
+      categoryorder = "array",
+      categoryarray = levels(top_cuisines$cuisine_description)
+    ),
+    showlegend = FALSE,
+    margin = list(l = 150, r = 20, b = 50, t = 15)
+  ) |>
+  config(displaylogo = FALSE, responsive = TRUE)
 ```
-

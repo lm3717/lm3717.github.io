@@ -1,19 +1,16 @@
 ---
-title: "My awesome website"
-output: 
+title: "Welcome!"
+output:
   html_document:
-    toc: true
-    toc_float: true
-    theme: cerulean
+    toc: false
 ---
 
-# This is Lina's awesome website
+<img src="images/myself.jpeg" alt="Lina Marcinczyk" style="width:200px; border-radius:50%; float:right; margin:0 0 15px 20px;">
 
-![](https://media.giphy.com/media/drXGoW1iudhKw/giphy.gif)
-To learn about this page, go [here](about.html).
+Hi, I'm Lina! I'm a Master's student in Biostatistics at Columbia University's Mailman School of Public Health, persuing the statistical genetics track.
 
-## Some other stuff
+Before starting my degree, I spent several years in clinical and translational research at Columbia University Medical Center, studying neurodegenerative disease biomarkers and coordinating clinical studies in cystic fibrosis. I'm now building on that experience with further education in statistics and data science, and I'm especially interested in how genetics and data can help us understand disease.
 
-Here's a pic:
+Outside of research, I enjoy logic puzzles, chess, poker, volunteering, and global health policy.
 
-<img src="images/hotdog.HEIC" style="width:75%">
+You can find my full [resume](resume.html) here.
